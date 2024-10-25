@@ -1,0 +1,114 @@
+CREATE TABLE DimAerolinea
+(
+	AerolineaKey INT IDENTITY(1,1) PRIMARY KEY,
+	CodigoAerolinea VARCHAR(10) NOT NULL,
+	NombreAerolinea VARCHAR(100) NOT NULL
+);
+GO
+
+
+CREATE TABLE DimFecha
+(
+	FechaKey INT PRIMARY KEY,
+	Fecha DATETIME NOT NULL,
+	Dia TINYINT NOT NULL,
+	Mes TINYINT NOT NULL,
+	Anio SMALLINT NOT NULL,
+	Trimestre TINYINT NOT NULL,
+	DiaSemana TINYINT NOT NULL
+);
+GO
+
+CREATE TABLE Date_Dimension
+(
+	date_key int not null,
+	full_date smalldatetime,
+	day_of_week tinyint,
+	day_num_in_month tinyint,
+	day_num_overall int,
+	day_name varchar(15),
+	day_abbrev char(3),
+	weekday_flag char(1),
+	week_num_in_year int,
+	week_num_overall int,
+	week_begin_date smalldatetime,
+	week_begin_date_key int,
+	month tinyint,
+	month_num_overall int,
+	month_name varchar(15),
+	month_abbrev varchar(15),
+	quarter tinyint,
+	year int,
+	yearmo int,
+	fiscal_month tinyint,
+	fiscal_quarter tinyint,
+	fiscal_year int,
+	last_day_in_month_flag varchar(15),
+	same_day_year_ago_date smalldatetime,
+	primary key (date_key)
+);
+GO
+
+##Script de factTables
+
+CREATE TABLE FactVuelos (
+    VueloID INT IDENTITY(1,1) PRIMARY KEY,       -- Clave primaria de la tabla de hechos
+    AerolineaKey INT NOT NULL,                   -- Clave foránea hacia dimAerolinea
+    FechaKey INT NOT NULL,                       -- Clave foránea hacia dimFecha
+    DateKey INT NOT NULL,                        -- Clave foránea hacia date_Dimension (fecha detallada)
+    Cancelado BIT NOT NULL,                      -- Si el vuelo fue cancelado
+    Desviado BIT NOT NULL,                       -- Si el vuelo fue desviado
+    RetrasoSalidaMinutos INT,                    -- Minutos de retraso en la salida
+    RetrasoLlegadaMinutos INT,                   -- Minutos de retraso en la llegada
+    Distancia INT NOT NULL,                      -- Distancia en millas entre aeropuerto de origen y destino
+);
+
+-- Crear las relaciones con las dimensiones
+
+-- Relación con dimAerolinea
+ALTER TABLE FactVuelos
+ADD CONSTRAINT FK_FactVuelos_AerolineaKey FOREIGN KEY (AerolineaKey)
+    REFERENCES DimAerolinea(AerolineaKey);
+
+-- Relación con dimFecha
+ALTER TABLE FactVuelos
+ADD CONSTRAINT FK_FactVuelos_FechaKey FOREIGN KEY (FechaKey)
+    REFERENCES DimFecha(FechaKey);
+
+-- Relación con date_Dimension
+ALTER TABLE FactVuelos
+ADD CONSTRAINT FK_FactVuelos_DateKey FOREIGN KEY (DateKey)
+    REFERENCES Date_Dimension(date_key);
+-- Opcional: insertar datos de prueba
+INSERT INTO FactVuelos (FechaDelVuelo, Aerolinea, AeropuertoOrigen, AeropuertoDestino, Cancelado, Desviado, RetrasoSalidaMinutos, RetrasoLlegadaMinutos, Distancia)
+VALUES ('2023-10-23', 'Delta Airlines', 'ATL', 'LAX', 0, 0, 10, 5, 2145),
+       ('2023-10-24', 'American Airlines', 'JFK', 'ORD', 1, 0, NULL, NULL, 740),
+       ('2023-10-25', 'Southwest', 'LAX', 'LAS', 0, 1, 30, 25, 236);
+
+
+#############################Insercion de datos en dimFecha desde date_dimension
+INSERT INTO DimFecha (FechaKey, Fecha, Dia, Mes, Anio, Trimestre, DiaSemana)
+SELECT date_key, full_date, day_num_in_month, month, year, quarter, day_of_week 
+FROM Date_Dimension;
+GO
+
+
+
+##PROCESO ALMACENADO
+CREATE PROCEDURE ActualizarAerolinea(
+	@AerolineaKey int,
+	@CodigoAerolinea VARCHAR(100),
+	@NombreAerolinea VARCHAR(10)
+)
+AS
+BEGIN
+	UPDATE dbo.DimAerolinea SET 
+		CodigoAerolinea=@CodigoAerolinea,
+		NombreAerolinea=@NombreAerolinea
+	WHERE AerolineaKey=@AerolineaKey
+END;
+GO
+
+
+
+EXEC ActualizarAerolinea ?,?,?;
